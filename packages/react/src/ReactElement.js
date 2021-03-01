@@ -12,12 +12,12 @@ import {REACT_ELEMENT_TYPE} from 'shared/ReactSymbols';
 import ReactCurrentOwner from './ReactCurrentOwner';
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
-
+// react保留的props
 const RESERVED_PROPS = {
   key: true,
   ref: true,
-  __self: true,
-  __source: true,
+  __self: true, // 保存实例的this对象
+  __source: true, // 注释
 };
 
 let specialPropKeyWarningShown,
@@ -248,7 +248,7 @@ export function jsx(type, config, maybeKey) {
     for (propName in defaultProps) {
       if (props[propName] === undefined) {
         props[propName] = defaultProps[propName];
-      }
+      } 
     }
   }
 
@@ -344,6 +344,9 @@ export function jsxDEV(type, config, maybeKey, source, self) {
 /**
  * Create and return a new ReactElement of the given type.
  * See https://reactjs.org/docs/react-api.html#createelement
+ * type: 本函数中仅作为传递，传递给后续函数，以判断如何去创建节点
+ * config: 可传入react保留的属性和用户自定的属性，用户自定的属性会全部赋值到props中传递下去
+ * children: 可传入一个或多个参数，如传入多个，会创建一个数组填入，并赋值到props.children中
  */
 export function createElement(type, config, children) {
   let propName;
@@ -465,6 +468,9 @@ export function cloneAndReplaceKey(oldElement, newKey) {
 /**
  * Clone and return a new ReactElement using element as the starting point.
  * See https://reactjs.org/docs/react-api.html#cloneelement
+ * @param {React.element} element
+ * @param {object} config 组件的props
+ * @param {arguments} children
  */
 export function cloneElement(element, config, children) {
   invariant(
