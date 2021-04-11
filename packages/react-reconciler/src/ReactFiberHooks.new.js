@@ -148,13 +148,16 @@ type Dispatch<A> = A => void;
 let renderLanes: Lanes = NoLanes;
 // The work-in-progress fiber. I've named it differently to distinguish it from
 // the work-in-progress hook.
+// 工作中的fiber节点
 let currentlyRenderingFiber: Fiber = (null: any);
 
 // Hooks are stored as a linked list on the fiber's memoizedState field. The
 // current hook list is the list that belongs to the current fiber. The
 // work-in-progress hook list is a new list that will be added to the
 // work-in-progress fiber.
+// 从fiber中取出的hook节点
 let currentHook: Hook | null = null;
+// 新建的，工作中的hooks节点，最终将会添加到fiber中
 let workInProgressHook: Hook | null = null;
 
 // Whether an update was scheduled at any point during the render phase. This
@@ -548,6 +551,9 @@ function updateWorkInProgressHook(): Hook {
   // the dispatcher used for mounts.
   let nextCurrentHook: null | Hook;
   if (currentHook === null) {
+    // 如果是第一个hook，即currentHook不存在，
+    // 则在上次渲染的fiber节点中，从它的memoizedState属性，取出hook链表的头节点
+    // alternate, 为fiber节点在旧树中的引用
     const current = currentlyRenderingFiber.alternate;
     if (current !== null) {
       nextCurrentHook = current.memoizedState;
@@ -555,6 +561,7 @@ function updateWorkInProgressHook(): Hook {
       nextCurrentHook = null;
     }
   } else {
+    // 反之，则进行迭代
     nextCurrentHook = currentHook.next;
   }
 
@@ -646,10 +653,6 @@ function updateReducer<S, I, A>(
 ): [S, Dispatch<A>] {
   const hook = updateWorkInProgressHook();
   const queue = hook.queue;
-  invariant(
-    queue !== null,
-    'Should have a queue. This is likely a bug in React. Please file an issue.',
-  );
 
   queue.lastRenderedReducer = reducer;
 
@@ -670,16 +673,6 @@ function updateReducer<S, I, A>(
       baseQueue.next = pendingFirst;
       pendingQueue.next = baseFirst;
     }
-    if (__DEV__) {
-      if (current.baseQueue !== baseQueue) {
-        // Internal invariant that should never happen, but feasibly could in
-        // the future if we implement resuming, or some form of that.
-        console.error(
-          'Internal error: Expected work-in-progress queue to be a clone. ' +
-            'This is a bug in React.',
-        );
-      }
-    }
     current.baseQueue = baseQueue = pendingQueue;
     queue.pending = null;
   }
@@ -694,8 +687,10 @@ function updateReducer<S, I, A>(
     let newBaseQueueLast = null;
     let update = first;
     do {
+      // 循环队列，计算state
       const updateLane = update.lane;
       if (!isSubsetOfLanes(renderLanes, updateLane)) {
+        // 优先级过低，跳过更新。
         // Priority is insufficient. Skip this update. If this is the first
         // skipped update, the previous update/state is the new base
         // update/state.
@@ -1765,15 +1760,6 @@ function dispatchAction<S, A>(
   queue: UpdateQueue<S, A>,
   action: A,
 ) {
-  if (__DEV__) {
-    if (typeof arguments[3] === 'function') {
-      console.error(
-        "State updates from the useState() and useReducer() Hooks don't support the " +
-          'second callback argument. To execute a side effect after ' +
-          'rendering, declare it in the component body with useEffect().',
-      );
-    }
-  }
 
   const eventTime = requestEventTime();
   const lane = requestUpdateLane(fiber);
@@ -1787,6 +1773,8 @@ function dispatchAction<S, A>(
   };
 
   // Append the update to the end of the list.
+  // 把更新对象链接到更新队列中，组成单循环链表
+  // pending指向队列的最后一个
   const pending = queue.pending;
   if (pending === null) {
     // This is the first update. Create a circular list.
@@ -1802,6 +1790,7 @@ function dispatchAction<S, A>(
     fiber === currentlyRenderingFiber ||
     (alternate !== null && alternate === currentlyRenderingFiber)
   ) {
+    // 这是发生在渲染阶段的更新,会在render完成后，立即重新调用
     // This is a render phase update. Stash it in a lazily-created map of
     // queue -> linked list of updates. After this render pass, we'll restart
     // and apply the stashed updates on top of the work-in-progress hook.
@@ -1814,15 +1803,14 @@ function dispatchAction<S, A>(
       // The queue is currently empty, which means we can eagerly compute the
       // next state before entering the render phase. If the new state is the
       // same as the current state, we may be able to bail out entirely.
+      // 我们可以直接计算触发更新的state值，如果与当前值相同，则跳过更新。
       const lastRenderedReducer = queue.lastRenderedReducer;
       if (lastRenderedReducer !== null) {
         let prevDispatcher;
-        if (__DEV__) {
-          prevDispatcher = ReactCurrentDispatcher.current;
-          ReactCurrentDispatcher.current = InvalidNestedHooksDispatcherOnUpdateInDEV;
-        }
         try {
+          // dispatch时的state
           const currentState: S = (queue.lastRenderedState: any);
+          // 通过reducer计算好的state
           const eagerState = lastRenderedReducer(currentState, action);
           // Stash the eagerly computed state, and the reducer used to compute
           // it, on the update object. If the reducer hasn't changed by the
@@ -1831,6 +1819,8 @@ function dispatchAction<S, A>(
           update.eagerReducer = lastRenderedReducer;
           update.eagerState = eagerState;
           if (is(eagerState, currentState)) {
+            // 如果计算好的state和当前的state相同，则不进行更新调度
+            // 但是update对象仍然会在组件下次重新渲染时去执行
             // Fast path. We can bail out without scheduling React to re-render.
             // It's still possible that we'll need to rebase this update later,
             // if the component re-renders for a different reason and by that
@@ -1846,23 +1836,7 @@ function dispatchAction<S, A>(
         }
       }
     }
-    if (__DEV__) {
-      // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests
-      if ('undefined' !== typeof jest) {
-        warnIfNotScopedWithMatchingAct(fiber);
-        warnIfNotCurrentlyActingUpdatesInDev(fiber);
-      }
-    }
     scheduleUpdateOnFiber(fiber, lane, eventTime);
-  }
-
-  if (__DEV__) {
-    if (enableDebugTracing) {
-      if (fiber.mode & DebugTracingMode) {
-        const name = getComponentName(fiber.type) || 'Unknown';
-        logStateUpdateScheduled(name, lane, action);
-      }
-    }
   }
 
   if (enableSchedulingProfiler) {
