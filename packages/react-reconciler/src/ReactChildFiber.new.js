@@ -262,6 +262,14 @@ function resolveLazy(lazyType) {
 // a compiler or we can do it manually. Helpers that don't need this branching
 // live outside of this function.
 function ChildReconciler(shouldTrackSideEffects) {
+  /**
+   * 删除fiber节点
+   * 并push到deletions数组中
+   * 链接到effect list 链表里
+   * @param {*} returnFiber 
+   * @param {*} childToDelete 
+   * @returns 
+   */
   function deleteChild(returnFiber: Fiber, childToDelete: Fiber): void {
     if (!shouldTrackSideEffects) {
       // Noop.
@@ -272,6 +280,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     // deletions, so we can just append the deletion to the list. The remaining
     // effects aren't added until the complete phase. Once we implement
     // resuming, this may not be true.
+    // 把这个节点链接副作用链表
     const last = returnFiber.lastEffect;
     if (last !== null) {
       last.nextEffect = childToDelete;
@@ -280,8 +289,10 @@ function ChildReconciler(shouldTrackSideEffects) {
       returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
     }
     childToDelete.nextEffect = null;
+    // 标记delete flags
     childToDelete.flags = (childToDelete.flags & StaticMask) | Deletion;
 
+    // push到deletion删除数组中。
     let deletions = returnFiber.deletions;
     if (deletions === null) {
       deletions = returnFiber.deletions = [childToDelete];
@@ -299,7 +310,12 @@ function ChildReconciler(shouldTrackSideEffects) {
     // TODO: Remove this line.
     childToDelete.deletions = deletions;
   }
-
+  /**
+   * 删除所有剩余的兄弟节点
+   * @param {*} returnFiber 
+   * @param {*} currentFirstChild 
+   * @returns 
+   */
   function deleteRemainingChildren(
     returnFiber: Fiber,
     currentFirstChild: Fiber | null,
@@ -348,7 +364,14 @@ function ChildReconciler(shouldTrackSideEffects) {
     clone.sibling = null;
     return clone;
   }
-
+  /**
+   * 如果老fiber节点的索引小于新fiber节点的索引，证明老fiber节点发生了移动，会标记为Placement
+   * 如果current不存在，证明是新插入的节点，也会标记为Placement
+   * @param {*} newFiber 
+   * @param {number} lastPlacedIndex 上个未移动节点的索引
+   * @param {number} newIndex 
+   * @returns 
+   */
   function placeChild(
     newFiber: Fiber,
     lastPlacedIndex: number,
@@ -364,6 +387,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       const oldIndex = current.index;
       if (oldIndex < lastPlacedIndex) {
         // This is a move.
+        // 老fiber节点的索引小于当前复用节点的索引，证明老节点向后移动了。
         newFiber.flags |= Placement;
         return lastPlacedIndex;
       } else {
@@ -423,6 +447,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
     if (current !== null) {
       if (
+        // element节点相同，则复用
         current.elementType === elementType ||
         // Keep this check inline so it only runs on the false path:
         (__DEV__
@@ -449,6 +474,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         return existing;
       }
     }
+    // 否则新建fiber节点
     // Insert
     const created = createFiberFromElement(element, returnFiber.mode, lanes);
     created.ref = coerceRef(returnFiber, current, element);
@@ -593,6 +619,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       if (key !== null) {
         return null;
       }
+      // 文本节点，直接复用或者新建
       return updateTextNode(returnFiber, oldFiber, '' + newChild, lanes);
     }
 
@@ -600,8 +627,10 @@ function ChildReconciler(shouldTrackSideEffects) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE: {
           if (newChild.key === key) {
+            // key相同，复用节点。如果elementType不同，则新建fiber节点。
             return updateElement(returnFiber, oldFiber, newChild, lanes);
           } else {
+            // key不同，无法复用
             return null;
           }
         }
@@ -789,11 +818,13 @@ function ChildReconciler(shouldTrackSideEffects) {
         knownKeys = warnOnInvalidKey(child, knownKeys, returnFiber);
       }
     }
-
+    // 新的fiber链表中的第一个节点
     let resultingFirstChild: Fiber | null = null;
+    // 前一个新的fiber节点
     let previousNewFiber: Fiber | null = null;
 
     let oldFiber = currentFirstChild;
+    // 上个未发生移动的节点的索引
     let lastPlacedIndex = 0;
     let newIdx = 0;
     let nextOldFiber = null;
@@ -804,6 +835,8 @@ function ChildReconciler(shouldTrackSideEffects) {
       } else {
         nextOldFiber = oldFiber.sibling;
       }
+      // 有两种情况，一种key相同，elementType相同，则复用老fiber节点。
+      // 一种key相同，elementType不同，则新建节点。
       const newFiber = updateSlot(
         returnFiber,
         oldFiber,
@@ -811,6 +844,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         lanes,
       );
       if (newFiber === null) {
+        // key不同，跳出循环
         // TODO: This breaks on empty slots like null children. That's
         // unfortunate because it triggers the slow path all the time. We need
         // a better way to communicate whether this was a miss or null,
@@ -824,10 +858,13 @@ function ChildReconciler(shouldTrackSideEffects) {
         if (oldFiber && newFiber.alternate === null) {
           // We matched the slot, but we didn't reuse the existing fiber, so we
           // need to delete the existing child.
+          // key相同，elementType不同，不能复用，则删除老fiber节点
           deleteChild(returnFiber, oldFiber);
         }
       }
+      // 如果复用了老fiber节点，则返回其节点的索引
       lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+      // 将构建好的fiber节点以sibling相互连接起来
       if (previousNewFiber === null) {
         // TODO: Move out of the loop. This only happens for the first run.
         resultingFirstChild = newFiber;
@@ -844,6 +881,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     if (newIdx === newChildren.length) {
       // We've reached the end of the new children. We can delete the rest.
+      // newChildren已遍历完，删除剩余的老的fiber节点
       deleteRemainingChildren(returnFiber, oldFiber);
       return resultingFirstChild;
     }
@@ -851,6 +889,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     if (oldFiber === null) {
       // If we don't have any more existing children we can choose a fast path
       // since the rest will all be insertions.
+      // 老fiber节点已遍历完，新的element节点仍有剩余，则把剩余的全部新建
       for (; newIdx < newChildren.length; newIdx++) {
         const newFiber = createChild(returnFiber, newChildren[newIdx], lanes);
         if (newFiber === null) {
@@ -869,6 +908,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
 
     // Add all children to a key map for quick lookups.
+    // 将剩余的老fiber节点存储到map中，map的key为：如果有key则用key，否则用index。
     const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
 
     // Keep scanning and use the map to restore deleted items as moves.
@@ -887,6 +927,7 @@ function ChildReconciler(shouldTrackSideEffects) {
             // current, that means that we reused the fiber. We need to delete
             // it from the child list so that we don't add it to the deletion
             // list.
+            // 匹配到老fiber节点，则把那个节点从map中删除
             existingChildren.delete(
               newFiber.key === null ? newIdx : newFiber.key,
             );
@@ -905,6 +946,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     if (shouldTrackSideEffects) {
       // Any existing children that weren't consumed above were deleted. We need
       // to add them to the deletion list.
+      // 删除为匹配到的老fiber节点
       existingChildren.forEach(child => deleteChild(returnFiber, child));
     }
 
@@ -1135,6 +1177,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         const elementType = element.type;
         if (elementType === REACT_FRAGMENT_TYPE) {
           if (child.tag === Fragment) {
+            // 因为最新的是个单节点，所以删除老fiber中无用的兄弟节点
             deleteRemainingChildren(returnFiber, child.sibling);
             const existing = useFiber(child, element.props.children);
             existing.return = returnFiber;
@@ -1161,6 +1204,7 @@ function ChildReconciler(shouldTrackSideEffects) {
               elementType.$$typeof === REACT_LAZY_TYPE &&
               resolveLazy(elementType) === child.type)
           ) {
+            // 因为最新的element是个单节点，所以删除老fiber中无用的兄弟节点
             deleteRemainingChildren(returnFiber, child.sibling);
             const existing = useFiber(child, element.props);
             existing.ref = coerceRef(returnFiber, child, element);
@@ -1181,6 +1225,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       child = child.sibling;
     }
 
+    // child为null，则上次渲染的fiber节点已经遍历完，把剩下的element节点新建fiber节点
     if (element.type === REACT_FRAGMENT_TYPE) {
       const created = createFiberFromFragment(
         element.props.children,
@@ -1368,6 +1413,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
 
     // Remaining cases are all treated as empty.
+    // 以上都没有命中，删除节点
     return deleteRemainingChildren(returnFiber, currentFirstChild);
   }
 
