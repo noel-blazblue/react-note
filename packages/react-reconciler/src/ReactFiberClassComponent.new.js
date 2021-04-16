@@ -569,7 +569,13 @@ function adoptClassInstance(workInProgress: Fiber, instance: any): void {
     instance._reactInternalInstance = fakeInternalInstance;
   }
 }
-
+/**
+ * 实例化class，并赋予到fiber节点的stateNode中
+ * @param {*} workInProgress 
+ * @param {*} ctor 
+ * @param {*} props 
+ * @returns 
+ */
 function constructClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -799,11 +805,19 @@ function callComponentWillReceiveProps(
         );
       }
     }
+    // 如果直接修改了state，就手动帮它添加到更新队列中，并直接替换state而不尽兴合并
     classComponentUpdater.enqueueReplaceState(instance, instance.state, null);
   }
 }
 
 // Invokes the mount life-cycles on a previously never rendered instance.
+/**
+ * 调用挂载前的生命周期
+ * @param {*} workInProgress 
+ * @param {*} ctor 
+ * @param {*} newProps 
+ * @param {*} renderLanes 
+ */
 function mountClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -865,6 +879,7 @@ function mountClassInstance(
 
   const getDerivedStateFromProps = ctor.getDerivedStateFromProps;
   if (typeof getDerivedStateFromProps === 'function') {
+    // 调用DerivedStateFromProp方法并直接修改memoizedState
     applyDerivedStateFromProps(
       workInProgress,
       ctor,
@@ -885,6 +900,7 @@ function mountClassInstance(
     callComponentWillMount(workInProgress, instance);
     // If we had additional state updates during this life-cycle, let's
     // process them now.
+    // 如果在挂载前的生命周期发生了setState，那此时就再对更新队列进行处理，去更新state。
     processUpdateQueue(workInProgress, newProps, instance, renderLanes);
     instance.state = workInProgress.memoizedState;
   }
@@ -1077,6 +1093,8 @@ function updateClassInstance(
       unresolvedOldProps !== unresolvedNewProps ||
       oldContext !== nextContext
     ) {
+      // 在没有getDerivedStateFromProps和getSnapshotBeforeUpdate的情况下
+      // 并且props或context发生了改变，就会调用这个钩子
       callComponentWillReceiveProps(
         workInProgress,
         instance,

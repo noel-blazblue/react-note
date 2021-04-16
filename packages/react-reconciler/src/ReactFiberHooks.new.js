@@ -148,16 +148,16 @@ type Dispatch<A> = A => void;
 let renderLanes: Lanes = NoLanes;
 // The work-in-progress fiber. I've named it differently to distinguish it from
 // the work-in-progress hook.
-// 工作中的fiber节点
+// 工作中的新fiber节点
 let currentlyRenderingFiber: Fiber = (null: any);
 
 // Hooks are stored as a linked list on the fiber's memoizedState field. The
 // current hook list is the list that belongs to the current fiber. The
 // work-in-progress hook list is a new list that will be added to the
 // work-in-progress fiber.
-// 从fiber中取出的hook节点
+// 老fiber中取出的hook节点
 let currentHook: Hook | null = null;
-// 新建的，工作中的hooks节点，最终将会添加到fiber中
+// 新建的，工作中的hooks节点
 let workInProgressHook: Hook | null = null;
 
 // Whether an update was scheduled at any point during the render phase. This
@@ -332,7 +332,16 @@ function areHookInputsEqual(
   }
   return true;
 }
-
+/**
+ * 执行函数组件的render，包括hooks调用，返回children
+ * @param {*} current 
+ * @param {*} workInProgress 
+ * @param {*} Component 
+ * @param {*} props 
+ * @param {*} secondArg 
+ * @param {*} nextRenderLanes 
+ * @returns 
+ */
 export function renderWithHooks<Props, SecondArg>(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -355,6 +364,7 @@ export function renderWithHooks<Props, SecondArg>(
       current !== null && current.type !== workInProgress.type;
   }
 
+  // 这一步是把wip的状态清空，然后在render中重新clone currentFiber的相应状态来执行
   workInProgress.memoizedState = null;
   workInProgress.updateQueue = null;
   workInProgress.lanes = NoLanes;
@@ -395,6 +405,7 @@ export function renderWithHooks<Props, SecondArg>(
   let children = Component(props, secondArg);
 
   // Check if there was a render phase update
+  // 在渲染阶段发生的更新，会直接re-render，重新执行。
   if (didScheduleRenderPhaseUpdateDuringThisPass) {
     // Keep rendering in a loop for as long as render phase updates continue to
     // be scheduled. Use a counter to prevent infinite loops.
@@ -435,6 +446,7 @@ export function renderWithHooks<Props, SecondArg>(
 
   // We can assume the previous dispatcher is always this one, since we set it
   // at the beginning of the render phase and there's no re-entrancy.
+  // 函数render已结束，关闭hooks调用接口
   ReactCurrentDispatcher.current = ContextOnlyDispatcher;
 
   if (__DEV__) {
@@ -446,6 +458,7 @@ export function renderWithHooks<Props, SecondArg>(
   const didRenderTooFewHooks =
     currentHook !== null && currentHook.next !== null;
 
+  // 当前fiber的render已执行结束，重置这些全局变量
   renderLanes = NoLanes;
   currentlyRenderingFiber = (null: any);
 
@@ -551,9 +564,6 @@ function updateWorkInProgressHook(): Hook {
   // the dispatcher used for mounts.
   let nextCurrentHook: null | Hook;
   if (currentHook === null) {
-    // 如果是第一个hook，即currentHook不存在，
-    // 则在上次渲染的fiber节点中，从它的memoizedState属性，取出hook链表的头节点
-    // alternate, 为fiber节点在旧树中的引用
     const current = currentlyRenderingFiber.alternate;
     if (current !== null) {
       nextCurrentHook = current.memoizedState;
@@ -561,7 +571,6 @@ function updateWorkInProgressHook(): Hook {
       nextCurrentHook = null;
     }
   } else {
-    // 反之，则进行迭代
     nextCurrentHook = currentHook.next;
   }
 
@@ -574,6 +583,7 @@ function updateWorkInProgressHook(): Hook {
 
   if (nextWorkInProgressHook !== null) {
     // There's already a work-in-progress. Reuse it.
+    // 走入这个分支，是只有在render阶段setState了，导致re-render，这个时候wip的 memoizedState hooks 链表已经创建过了。
     workInProgressHook = nextWorkInProgressHook;
     nextWorkInProgressHook = workInProgressHook.next;
 

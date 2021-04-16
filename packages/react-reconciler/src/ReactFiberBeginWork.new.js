@@ -930,7 +930,19 @@ function updateFunctionComponent(
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
 }
-
+/**
+ * 更新class组件
+ * 1. 挂载：(实例化class，调用挂载前生命周期钩子) || 更新：（调用更新前生命周期钩子，得出是否需要更新）
+ * 2. 如果需要更新，就执行render()获得children,否则跳过
+ * 3. 根据children执行reconcilerChildren，创建子fiber
+ * 4. 返回这个子fiber
+ * @param {*} current 
+ * @param {*} workInProgress 
+ * @param {*} Component 
+ * @param {*} nextProps 
+ * @param {*} renderLanes 
+ * @returns 
+ */
 function updateClassComponent(
   current: Fiber | null,
   workInProgress: Fiber,
@@ -1023,7 +1035,20 @@ function updateClassComponent(
   }
   return nextUnitOfWork;
 }
-
+/**
+ * 完成工作，如果不需要更新，则跳过reconciler
+ * 1. 更新ref
+ * 2. 执行render()，获得children(element)
+ * 3. 执行reconcilerChildren，去创建子节点的fiber
+ * 4. 返回这个子节点
+ * @param {*} current 
+ * @param {*} workInProgress 
+ * @param {*} Component 
+ * @param {*} shouldUpdate 
+ * @param {*} hasContext 
+ * @param {*} renderLanes 
+ * @returns 
+ */
 function finishClassComponent(
   current: Fiber | null,
   workInProgress: Fiber,

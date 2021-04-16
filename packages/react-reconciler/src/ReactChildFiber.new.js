@@ -311,7 +311,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     childToDelete.deletions = deletions;
   }
   /**
-   * 删除所有剩余的兄弟节点
+   * 标记删除当前节点及其所有剩余的兄弟节点
    * @param {*} returnFiber 
    * @param {*} currentFirstChild 
    * @returns 
@@ -1225,7 +1225,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       child = child.sibling;
     }
 
-    // child为null，则上次渲染的fiber节点已经遍历完，把剩下的element节点新建fiber节点
+    // child为null，则老fiber节点已经遍历完，把剩下的element节点新建fiber节点
     if (element.type === REACT_FRAGMENT_TYPE) {
       const created = createFiberFromFragment(
         element.props.children,

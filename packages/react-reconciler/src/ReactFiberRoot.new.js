@@ -92,6 +92,7 @@ export function createFiberRoot(
   hydrate: boolean,
   hydrationCallbacks: null | SuspenseHydrationCallbacks,
 ): FiberRoot {
+  // 创建应用根节点
   const root: FiberRoot = (new FiberRootNode(containerInfo, tag, hydrate): any);
   if (enableSuspenseCallback) {
     root.hydrationCallbacks = hydrationCallbacks;
@@ -99,6 +100,7 @@ export function createFiberRoot(
 
   // Cyclic construction. This cheats the type system right now because
   // stateNode is any.
+  // 创建组件的fiber根节点
   const uninitializedFiber = createHostRootFiber(tag);
   root.current = uninitializedFiber;
   uninitializedFiber.stateNode = root;
@@ -117,7 +119,8 @@ export function createFiberRoot(
     };
     uninitializedFiber.memoizedState = initialState;
   }
-
+  
+  // 初始化一个更新队列
   initializeUpdateQueue(uninitializedFiber);
 
   return root;
