@@ -1027,6 +1027,7 @@ function performSyncWorkOnRoot(root) {
     'Should not already be working.',
   );
 
+  // 刷新副作用，如useEffect
   flushPassiveEffects();
 
   let lanes;
@@ -1098,6 +1099,7 @@ function performSyncWorkOnRoot(root) {
 
   // Before exiting, make sure there's a callback scheduled for the next
   // pending level.
+  // 在退出之前，确保是否还有任务在等待调度
   ensureRootIsScheduled(root, now());
 
   return null;
@@ -1614,6 +1616,9 @@ function renderRootSync(root: FiberRoot, lanes: Lanes) {
 
 // The work loop is an extremely hot path. Tell Closure not to inline it.
 /** @noinline */
+/**
+ * 循环执行每个fiber
+ */
 function workLoopSync() {
   // Already timed out, so perform work without checking if we need to yield.
   while (workInProgress !== null) {
@@ -1697,7 +1702,12 @@ function workLoopConcurrent() {
     performUnitOfWork(workInProgress);
   }
 }
-
+/**
+ * 执行每个fiber
+ * 当前fiber执行完后返回一个child，设置它为workInProgress
+ * 如果child不存在，则completeUnitOfWork
+ * @param {*} unitOfWork 
+ */
 function performUnitOfWork(unitOfWork: Fiber): void {
   // The current, flushed, state of this fiber is the alternate. Ideally
   // nothing should rely on this, but relying on it here means that we don't
@@ -1706,6 +1716,7 @@ function performUnitOfWork(unitOfWork: Fiber): void {
   setCurrentDebugFiberInDEV(unitOfWork);
 
   let next;
+  // beginWork会返回经过了reconcile的child
   if (enableProfilerTimer && (unitOfWork.mode & ProfileMode) !== NoMode) {
     startProfilerTimer(unitOfWork);
     next = beginWork(current, unitOfWork, subtreeRenderLanes);
@@ -1715,9 +1726,11 @@ function performUnitOfWork(unitOfWork: Fiber): void {
   }
 
   resetCurrentDebugFiberInDEV();
+  // render执行完毕，更新当前fiber的props
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
+    // 遍历到了叶子节点，可以完成工作。
     completeUnitOfWork(unitOfWork);
   } else {
     workInProgress = next;
@@ -1725,7 +1738,13 @@ function performUnitOfWork(unitOfWork: Fiber): void {
 
   ReactCurrentOwner.current = null;
 }
-
+/**
+ * 完成每个fiber，并遍历sibling。
+ * 遍历规则：迭代return。如果当前节点存在sibling，则把workInProcess设置为sibling，并退出遍历。
+ * 每次遍历，都把当前节点的 effect 链表到父节点。
+ * @param {*} unitOfWork 
+ * @returns 
+ */
 function completeUnitOfWork(unitOfWork: Fiber): void {
   // Attempt to complete the current unit of work, then move to the next
   // sibling. If there are no more siblings, return to the parent fiber.
@@ -1763,6 +1782,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
       if (
         returnFiber !== null &&
         // Do not append effects to parents if a sibling failed to complete
+        // 如果sibling节点还没完成，则不要把effect链表链接到父节点
         (returnFiber.flags & Incomplete) === NoFlags
       ) {
         // Append all the effects of the subtree and this fiber onto the effect
@@ -1855,6 +1875,7 @@ function completeUnitOfWork(unitOfWork: Fiber): void {
   } while (completedWork !== null);
 
   // We've reached the root.
+  // 完成到了根节点
   if (workInProgressRootExitStatus === RootIncomplete) {
     workInProgressRootExitStatus = RootCompleted;
   }
@@ -2319,6 +2340,7 @@ function commitMutationEffects(
       commitResetTextContent(nextEffect);
     }
 
+    // 需要更新ref
     if (flags & Ref) {
       const current = nextEffect.alternate;
       if (current !== null) {

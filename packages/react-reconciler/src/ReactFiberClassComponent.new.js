@@ -559,11 +559,18 @@ function checkClassInstance(workInProgress: Fiber, ctor: any, newProps: any) {
     }
   }
 }
-
+/**
+ * 1. 赋予updater更新器
+ * 2. instance赋值到workInProgress.stateNode
+ * 3. 使实例链接上fiber
+ * @param {*} workInProgress 
+ * @param {*} instance 
+ */
 function adoptClassInstance(workInProgress: Fiber, instance: any): void {
   instance.updater = classComponentUpdater;
   workInProgress.stateNode = instance;
   // The instance needs access to the fiber so that it can schedule updates
+  // 使实例链接上fiber
   setInstance(instance, workInProgress);
   if (__DEV__) {
     instance._reactInternalInstance = fakeInternalInstance;
@@ -660,6 +667,7 @@ function constructClassInstance(
     instance.state !== null && instance.state !== undefined
       ? instance.state
       : null);
+  // 赋予updater更新器,并把实例和fiber建立双向链接
   adoptClassInstance(workInProgress, instance);
 
   if (__DEV__) {

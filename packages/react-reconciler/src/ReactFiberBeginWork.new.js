@@ -1012,6 +1012,7 @@ function updateClassComponent(
       renderLanes,
     );
   }
+  // 执行reconcilerChildren返回子节点
   const nextUnitOfWork = finishClassComponent(
     current,
     workInProgress,
@@ -3265,6 +3266,7 @@ function beginWork(
     }
   }
 
+  // 以下判断都是为了设置didReceiveUpdate
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
@@ -3277,12 +3279,15 @@ function beginWork(
     ) {
       // If props or context changed, mark the fiber as having performed work.
       // This may be unset if the props are determined to be equal later (memo).
+      // props 或 context 发生了改变，标记 didReceiveUpdate 为true，表示要执行这个工作
+      // 如果在之后检查到props相等，则可以再复位回来。
       didReceiveUpdate = true;
     } else if (!includesSomeLane(renderLanes, updateLanes)) {
       didReceiveUpdate = false;
       // This fiber does not have any pending work. Bailout without entering
       // the begin phase. There's still some bookkeeping we that needs to be done
       // in this optimized path, mostly pushing stuff onto the stack.
+      // 当前fiber没有等待的工作
       switch (workInProgress.tag) {
         case HostRoot:
           pushHostRootContext(workInProgress);
@@ -3478,10 +3483,13 @@ function beginWork(
         // nor legacy context. Set this to false. If an update queue or context
         // consumer produces a changed value, it will set this to true. Otherwise,
         // the component will assume the children have not changed and bail out.
+        // 这个fiber节点被调度了，但是他没有新的props或者context更改，所以关闭这个开关。
+        // 如果在之后发生改变，会重新设置为true
         didReceiveUpdate = false;
       }
     }
   } else {
+    // current不存在，属于mount阶段
     didReceiveUpdate = false;
   }
 

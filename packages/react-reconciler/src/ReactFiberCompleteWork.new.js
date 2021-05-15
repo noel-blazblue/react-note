@@ -494,6 +494,7 @@ if (supportsMutation) {
     // This guarantees that we can reuse all of them.
     const childrenUnchanged = workInProgress.firstEffect === null;
     if (childrenUnchanged && oldProps === newProps) {
+      // children无副作用且 props 未改变的情况下，复用dom实例
       // No changes, just reuse the existing instance.
       // Note that this might release a previous clone.
       workInProgress.stateNode = currentInstance;
@@ -513,6 +514,7 @@ if (supportsMutation) {
       );
     }
     if (childrenUnchanged && updatePayload === null) {
+      // children无副作用且prop经过diff未发生更新
       // No changes, just reuse the existing instance.
       // Note that this might release a previous clone.
       workInProgress.stateNode = currentInstance;
@@ -537,6 +539,7 @@ if (supportsMutation) {
         currentHostContext,
       )
     ) {
+      // 标记flag为updatge
       markUpdate(workInProgress);
     }
     workInProgress.stateNode = newInstance;

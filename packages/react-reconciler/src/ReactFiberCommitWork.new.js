@@ -859,7 +859,10 @@ function hideOrUnhideAllChildren(finishedWork, isHidden) {
     }
   }
 }
-
+/**
+ * 把实例依附到ref
+ * @param {*} finishedWork 
+ */
 function commitAttachRef(finishedWork: Fiber) {
   const ref = finishedWork.ref;
   if (ref !== null) {
@@ -907,6 +910,10 @@ function commitAttachRef(finishedWork: Fiber) {
   }
 }
 
+/**
+ * 把老fiber节点的ref置为null
+ * @param {*} current 
+ */
 function commitDetachRef(current: Fiber) {
   const currentRef = current.ref;
   if (currentRef !== null) {

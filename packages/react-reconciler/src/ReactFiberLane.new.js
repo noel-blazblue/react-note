@@ -608,7 +608,12 @@ function pickArbitraryLaneIndex(lanes: Lanes) {
 function laneToIndex(lane: Lane) {
   return pickArbitraryLaneIndex(lane);
 }
-
+/**
+ * 两个lane是否有交集
+ * @param {*} a 
+ * @param {*} b 
+ * @returns 
+ */
 export function includesSomeLane(a: Lanes | Lane, b: Lanes | Lane) {
   return (a & b) !== NoLanes;
 }
