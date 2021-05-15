@@ -3145,6 +3145,7 @@ function bailoutOnAlreadyFinishedWork(
 ): Fiber | null {
   if (current !== null) {
     // Reuse previous dependencies
+    // 复用上个依赖
     workInProgress.dependencies = current.dependencies;
   }
 
